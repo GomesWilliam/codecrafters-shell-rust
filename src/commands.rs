@@ -1,5 +1,5 @@
 // Enum of built-in commands and their handlers
-use std::{env, path::{MAIN_SEPARATOR, PathBuf}};
+use std::{env, path::PathBuf};
 
 enum BuiltInCommand {
     Exit,
@@ -83,11 +83,8 @@ pub fn find_executable(dir: &PathBuf, name: &str) -> Option<PathBuf> {
 }
 
 pub fn get_path_dirs() -> Vec<PathBuf> {
-    if let Ok(path) = env::var("PATH") {
-        path
-            .split(MAIN_SEPARATOR)
-            .map(PathBuf::from)
-            .collect()
+    if let Some(path) = env::var_os("PATH") {
+        env::split_paths(&path).collect()
     } else {
         Vec::new()
     }
