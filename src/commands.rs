@@ -1,4 +1,6 @@
 // Enum of built-in commands and their handlers
+use std::{env, path::{MAIN_SEPARATOR, PathBuf}};
+
 enum BuiltInCommand {
     Exit,
     Echo,
@@ -31,11 +33,11 @@ pub fn type_command(args: Vec<String>) {
         println!("type: missing operand");
         return;
     }
-    
+
     //Compare the arguments to the list of built-in commands and print out which ones are built-in
     for arg in args {
         match BuiltInCommand::from_str(arg.trim()) {
-            BuiltInCommand::Unknown(_) => println!("{}: not found", arg),
+            BuiltInCommand::Unknown(_) => type_non_builtin(&arg),
             _                          => println!("{} is a shell builtin", arg),
         }
     }
@@ -51,4 +53,42 @@ pub fn parse_command(input: String) -> (String, Vec<String>) {
     let args: Vec<String> = parts[1..].to_vec();
 
     (command, args)
+}
+
+pub fn type_non_builtin(name: &str) {
+    let paths: Vec<PathBuf> = get_path_dirs();
+    let mut found: Option<PathBuf> = None;
+
+    for dir in &paths {
+        if let Some(full_path) = find_executable(dir, name) {
+            found = Some(full_path);
+            break;
+        }
+    }
+
+    if let Some(full_path) = found {
+        println!("{} is {}", name, full_path.display());
+    } else {
+        println!("{}: not found", name);
+    }
+}
+
+pub fn find_executable(dir: &PathBuf, name: &str) -> Option<PathBuf> {
+    let full_path = dir.join(name);
+    if  full_path.exists() {
+        return Some(full_path);
+    }
+
+    None
+}
+
+pub fn get_path_dirs() -> Vec<PathBuf> {
+    if let Ok(path) = env::var("PATH") {
+        path
+            .split(MAIN_SEPARATOR)
+            .map(PathBuf::from)
+            .collect()
+    } else {
+        Vec::new()
+    }
 }
