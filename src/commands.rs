@@ -1,5 +1,8 @@
 // Enum of built-in commands and their handlers
-use std::{env, path::PathBuf};
+use std::{env, path::{Path, PathBuf}};
+
+#[cfg(unix)]
+use std::os::unix::fs::PermissionsExt;
 
 enum BuiltInCommand {
     Exit,
@@ -75,11 +78,31 @@ pub fn type_non_builtin(name: &str) {
 
 pub fn find_executable(dir: &PathBuf, name: &str) -> Option<PathBuf> {
     let full_path = dir.join(name);
-    if  full_path.exists() {
+    if is_executable_file(&full_path) {
         return Some(full_path);
     }
 
     None
+}
+
+fn is_executable_file(path: &Path) -> bool {
+    let Ok(metadata) = std::fs::metadata(path) else {
+        return false;
+    };
+
+    if !metadata.is_file() {
+        return false;
+    }
+
+    #[cfg(unix)]
+    {
+        metadata.permissions().mode() & 0o111 != 0
+    }
+
+    #[cfg(not(unix))]
+    {
+        true
+    }
 }
 
 pub fn get_path_dirs() -> Vec<PathBuf> {
