@@ -9,6 +9,5 @@ fn main() {
     //Read user input and print it back to the console
     let mut command: String = String::new();
     io::stdin().read_line(&mut command).expect("Failed to read line");
-
-    println!("{command}: command not found");
+    println!("{}: command not found", command.trim());
 }
