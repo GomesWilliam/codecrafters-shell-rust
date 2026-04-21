@@ -11,7 +11,6 @@ fn main() {
         io::stdin().read_line(&mut command).expect("Failed to read line");
 
         //Passes the command to the command handler
-
         // Parse the command and its arguments
         let (command, args) = commands::parse_command(command);
 
