@@ -1,5 +1,9 @@
-// Enum of built-in commands and their handlers
-use std::{ env, path::{Path, PathBuf}, process::Command};
+// Command handling for built-ins and external executables.
+use std::{
+    env,
+    path::{Path, PathBuf},
+    process::Command,
+};
 
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
@@ -8,7 +12,7 @@ enum BuiltInCommand {
     Exit,
     Echo,
     Type,
-    Unknown(String),
+    External,
 }
 
 impl BuiltInCommand {
@@ -17,31 +21,32 @@ impl BuiltInCommand {
             "exit" => BuiltInCommand::Exit,
             "echo" => BuiltInCommand::Echo,
             "type" => BuiltInCommand::Type,
-            other  => BuiltInCommand::Unknown(other.to_string()),
+            _ => BuiltInCommand::External,
         }
     }
 }
 
 pub fn handle_command(command: String, args: Vec<String>) {
-    match BuiltInCommand::from_str(command.trim()) {
-        BuiltInCommand::Exit           => std::process::exit(0),
-        BuiltInCommand::Echo           => println!("{}", args.join(" ")),
-        BuiltInCommand::Type           => type_command(args),
-        BuiltInCommand::Unknown(cmd)   => handle_non_builtin_command(&cmd, args),
-    }
-}
-
-fn handle_non_builtin_command(command: &str, args: Vec<String>) {
-    //verify that this command is found and is an exec.
-    let found: Option<PathBuf> = find_executable_in_dir(command);
-
-    if found == None {
-        println!("{}: command not found", command);
+    let command = command.trim();
+    if command.is_empty() {
         return;
     }
 
-    //If exe is found, execute passing the args
-    run_external(command, &args);
+    match BuiltInCommand::from_str(command) {
+        BuiltInCommand::Exit           => std::process::exit(0),
+        BuiltInCommand::Echo           => println!("{}", args.join(" ")),
+        BuiltInCommand::Type           => type_command(args),
+        BuiltInCommand::External       => handle_non_builtin_command(command, &args),
+    }
+}
+
+fn handle_non_builtin_command(command: &str, args: &[String]) {
+    let Some(found) = find_executable_in_dir(command) else {
+        println!("{}: command not found", command);
+        return;
+    };
+
+    run_external(&found, args);
 }
 
 pub fn type_command(args: Vec<String>) {
@@ -53,22 +58,21 @@ pub fn type_command(args: Vec<String>) {
     //Compare the arguments to the list of built-in commands and print out which ones are built-in
     for arg in args {
         match BuiltInCommand::from_str(arg.trim()) {
-            BuiltInCommand::Unknown(_) => type_non_builtin(&arg),
+            BuiltInCommand::External   => type_non_builtin(&arg),
             _                          => println!("{} is a shell builtin", arg),
         }
     }
 }
 
 pub fn parse_command(input: String) -> (String, Vec<String>) {
-    let parts: Vec<String> = input.trim().split_whitespace().map(String::from).collect();
-    if parts.is_empty() {
+    let mut parts = input.split_whitespace();
+    let Some(command) = parts.next() else {
         return (String::new(), Vec::new());
-    }
+    };
 
-    let command: String  = parts[0].clone();
-    let args: Vec<String> = parts[1..].to_vec();
+    let args: Vec<String> = parts.map(String::from).collect();
 
-    (command, args)
+    (command.to_string(), args)
 }
 
 pub fn type_non_builtin(name: &str) {
@@ -82,21 +86,13 @@ pub fn type_non_builtin(name: &str) {
 }
 
 fn find_executable_in_dir(name: &str) -> Option<PathBuf> {
-    let paths: Vec<PathBuf> = get_path_dirs();
-    let mut found: Option<PathBuf> = None;
-
-    for dir in &paths {
-        if let Some(full_path) = find_executable_in_path(dir, name) {
-            found = Some(full_path);
-            break;
-        }
-    }
-
-    found 
+    get_path_dirs()
+        .iter()
+        .find_map(|dir| find_executable_in_path(dir, name))
 }
 
 #[cfg(unix)]
-pub fn find_executable_in_path(dir: &PathBuf, name: &str) -> Option<PathBuf> {
+pub fn find_executable_in_path(dir: &Path, name: &str) -> Option<PathBuf> {
     let full_path = dir.join(name);
     if is_executable_file(&full_path) {
         return Some(full_path);
@@ -106,7 +102,7 @@ pub fn find_executable_in_path(dir: &PathBuf, name: &str) -> Option<PathBuf> {
 }
 
 #[cfg(windows)]
-pub fn find_executable(dir: &PathBuf, name: &str) -> Option<PathBuf> {
+pub fn find_executable_in_path(dir: &Path, name: &str) -> Option<PathBuf> {
     let pathexts = get_windows_pathexts();
     let has_ext = Path::new(name).extension().is_some();
 
@@ -184,10 +180,10 @@ pub fn get_path_dirs() -> Vec<PathBuf> {
     }
 }
 
-fn run_external(program: &str, args: &[String]){
+fn run_external(program: &Path, args: &[String]) {
     let status = Command::new(program)
-    .args(args)
-    .status();
+        .args(args)
+        .status();
 
     match status {
         Ok(exit_status) => {
@@ -196,7 +192,7 @@ fn run_external(program: &str, args: &[String]){
             }
         }
         Err(err) => {
-            eprintln!("failed to execute {}: {}", program, err);
+            eprintln!("failed to execute {}: {}", program.display(), err);
         }
     }
 }
