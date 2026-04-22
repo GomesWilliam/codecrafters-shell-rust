@@ -114,7 +114,7 @@ fn cd_command(args: &[String]) {
     let target = resolve_cd_path(path_arg);
 
     if let Err(err) = env::set_current_dir(&target) {
-        println!("cd: {}: {}", path_arg, err);
+        println!("cd: {}: {}", path_arg, err.kind());
     }
 }
 
