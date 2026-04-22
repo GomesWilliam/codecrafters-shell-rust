@@ -197,6 +197,8 @@ fn run_external(program: &Path, command_name: &str, args: &[String]) {
 
     #[cfg(unix)]
     {
+        // Keep argv[0] as the original command token (e.g. "custom_exe_7296")
+        // even when executing via a resolved absolute path.
         cmd.arg0(command_name);
     }
 
