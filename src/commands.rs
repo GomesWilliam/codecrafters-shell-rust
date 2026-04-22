@@ -7,6 +7,8 @@ use std::{
 
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
+#[cfg(unix)]
+use std::os::unix::process::CommandExt;
 
 enum BuiltInCommand {
     Exit,
@@ -49,7 +51,7 @@ fn handle_non_builtin_command(command: &str, args: &[String]) {
         return;
     };
 
-    run_external(&found, args);
+    run_external(&found, command, args);
 }
 
 pub fn type_command(args: Vec<String>) {
@@ -190,10 +192,15 @@ pub fn get_path_dirs() -> Vec<PathBuf> {
     }
 }
 
-fn run_external(program: &Path, args: &[String]) {
-    let status = Command::new(program)
-        .args(args)
-        .status();
+fn run_external(program: &Path, command_name: &str, args: &[String]) {
+    let mut cmd = Command::new(program);
+
+    #[cfg(unix)]
+    {
+        cmd.arg0(command_name);
+    }
+
+    let status = cmd.args(args).status();
 
     match status {
         Ok(exit_status) => {
