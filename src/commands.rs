@@ -15,6 +15,7 @@ enum BuiltInCommand {
     Echo,
     Type,
     Pwd,
+    Cd,
     External,
 }
 
@@ -25,6 +26,7 @@ impl BuiltInCommand {
             "echo" => BuiltInCommand::Echo,
             "type" => BuiltInCommand::Type,
             "pwd"  => BuiltInCommand::Pwd,
+            "cd"   => BuiltInCommand::Cd,
             _ => BuiltInCommand::External,
         }
     }
@@ -41,6 +43,7 @@ pub fn handle_command(command: String, args: Vec<String>) {
         BuiltInCommand::Echo           => println!("{}", args.join(" ")),
         BuiltInCommand::Type           => type_command(args),
         BuiltInCommand::Pwd            => pwd_command(),
+        BuiltInCommand::Cd             => cd_command(&args),
         BuiltInCommand::External       => handle_non_builtin_command(command, &args),
     }
 }
@@ -95,6 +98,34 @@ fn pwd_command() {
         Ok(current_dir) => println!("{}", current_dir.display()),
         Err(err) => eprintln!("pwd: {}", err),
     }
+}
+
+fn cd_command(args: &[String]) {
+    let Some(path_arg) = args.first() else {
+        println!("cd: missing argument");
+        return;
+    };
+
+    if args.len() > 1 {
+        println!("cd: too many arguments");
+        return;
+    }
+
+    let target = resolve_cd_path(path_arg);
+
+    if let Err(err) = env::set_current_dir(&target) {
+        println!("cd: {}: {}", path_arg, err);
+    }
+}
+
+fn resolve_cd_path(path_arg: &str) -> PathBuf {
+    if path_arg == "~" {
+        return env::var_os("HOME")
+            .map(PathBuf::from)
+            .unwrap_or_else(|| PathBuf::from(path_arg));
+    }
+
+    PathBuf::from(path_arg)
 }
 
 fn find_executable_in_dir(name: &str) -> Option<PathBuf> {
