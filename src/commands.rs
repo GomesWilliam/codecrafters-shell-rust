@@ -12,6 +12,7 @@ enum BuiltInCommand {
     Exit,
     Echo,
     Type,
+    Pwd,
     External,
 }
 
@@ -21,6 +22,7 @@ impl BuiltInCommand {
             "exit" => BuiltInCommand::Exit,
             "echo" => BuiltInCommand::Echo,
             "type" => BuiltInCommand::Type,
+            "pwd"  => BuiltInCommand::Pwd,
             _ => BuiltInCommand::External,
         }
     }
@@ -36,6 +38,7 @@ pub fn handle_command(command: String, args: Vec<String>) {
         BuiltInCommand::Exit           => std::process::exit(0),
         BuiltInCommand::Echo           => println!("{}", args.join(" ")),
         BuiltInCommand::Type           => type_command(args),
+        BuiltInCommand::Pwd            => pwd_command(),
         BuiltInCommand::External       => handle_non_builtin_command(command, &args),
     }
 }
@@ -82,6 +85,13 @@ pub fn type_non_builtin(name: &str) {
         println!("{} is {}", name, full_path.display());
     } else {
         println!("{}: not found", name);
+    }
+}
+
+fn pwd_command() {
+    match env::current_dir() {
+        Ok(current_dir) => println!("{}", current_dir.display()),
+        Err(err) => eprintln!("pwd: {}", err),
     }
 }
 
