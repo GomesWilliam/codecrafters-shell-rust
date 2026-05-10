@@ -55,18 +55,10 @@ fn echo_commnad(args: &[String]){
     // Adjacent quoted strings 'hello' and 'world' are concatenated.
     //Empty quotes '' are ignored.
 
-    let mut final_vec: Vec<String> = Vec::new();
-    for arg in args {
-        // Quotes are only used for grouping; strip them before printing.
-        let str_final: String = arg.chars().filter(|&ch| ch != '\'').collect();
-        if str_final.is_empty() {
-            continue;
-        }
-
-        final_vec.push(str_final);
-    }
-
-    println!("{}", final_vec.join(" "))
+    // Quotes are already stripped by parse_command, so args are clean.
+    // Skip tokens that ended up empty (e.g. from '' in input).
+    let non_empty: Vec<&String> = args.iter().filter(|a| !a.is_empty()).collect();
+    println!("{}", non_empty.iter().map(|s| s.as_str()).collect::<Vec<_>>().join(" "))
 }
 
 fn handle_non_builtin_command(command: &str, args: &[String]) {
@@ -102,8 +94,10 @@ pub fn parse_command(input: String) -> (String, Vec<String>) {
     for ch in input.chars() {
         match ch {
             '\'' => {
+                // Toggle quote mode but do NOT push the quote char itself.
+                // This way the token accumulates only the real content,
+                // and every command (built-in or external) gets clean args.
                 in_single_quotes = !in_single_quotes;
-                current.push(ch);
             }
             c if c.is_whitespace() && !in_single_quotes => {
                 if !current.is_empty() {
