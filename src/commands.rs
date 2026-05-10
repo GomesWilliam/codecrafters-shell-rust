@@ -40,12 +40,33 @@ pub fn handle_command(command: String, args: Vec<String>) {
 
     match BuiltInCommand::from_str(command) {
         BuiltInCommand::Exit           => std::process::exit(0),
-        BuiltInCommand::Echo           => println!("{}", args.join(" ")),
+        BuiltInCommand::Echo           => echo_commnad(&args),
         BuiltInCommand::Type           => type_command(args),
         BuiltInCommand::Pwd            => pwd_command(),
         BuiltInCommand::Cd             => cd_command(&args),
         BuiltInCommand::External       => handle_non_builtin_command(command, &args),
     }
+}
+
+fn echo_commnad(args: &[String]){
+    //Single quotes rules
+    // Spaces are preserved within quotes.
+    // Consecutive spaces are collapsed unless quoted.
+    // Adjacent quoted strings 'hello' and 'world' are concatenated.
+    //Empty quotes '' are ignored.
+
+    let mut final_vec: Vec<String> = Vec::new();
+    for arg in args {
+        // Quotes are only used for grouping; strip them before printing.
+        let str_final: String = arg.chars().filter(|&ch| ch != '\'').collect();
+        if str_final.is_empty() {
+            continue;
+        }
+
+        final_vec.push(str_final);
+    }
+
+    println!("{}", final_vec.join(" "))
 }
 
 fn handle_non_builtin_command(command: &str, args: &[String]) {
@@ -73,14 +94,37 @@ pub fn type_command(args: Vec<String>) {
 }
 
 pub fn parse_command(input: String) -> (String, Vec<String>) {
-    let mut parts = input.split_whitespace();
-    let Some(command) = parts.next() else {
+    // Tokenize while preserving whitespace inside single quotes.
+    let mut tokens: Vec<String> = Vec::new();
+    let mut current = String::new();
+    let mut in_single_quotes = false;
+
+    for ch in input.chars() {
+        match ch {
+            '\'' => {
+                in_single_quotes = !in_single_quotes;
+                current.push(ch);
+            }
+            c if c.is_whitespace() && !in_single_quotes => {
+                if !current.is_empty() {
+                    tokens.push(std::mem::take(&mut current));
+                }
+            }
+            _ => current.push(ch),
+        }
+    }
+
+    if !current.is_empty() {
+        tokens.push(current);
+    }
+
+    let Some(command) = tokens.first().cloned() else {
         return (String::new(), Vec::new());
     };
 
-    let args: Vec<String> = parts.map(String::from).collect();
+    let args: Vec<String> = tokens.into_iter().skip(1).collect();
 
-    (command.to_string(), args)
+    (command, args)
 }
 
 pub fn type_non_builtin(name: &str) {
